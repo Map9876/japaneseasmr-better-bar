@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "ASMR Player Enhancer",
+  "version": "1.1.0",
+  "description": "增强 japaneseasmr.com 的音频播放器：全宽进度条、拖动快进、Track独立进度条、已播放时间显示",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://japaneseasmr.com/*",
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://japaneseasmr.com/*"],
+      "js": ["jszip.min.js", "content.js", "subtitles.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

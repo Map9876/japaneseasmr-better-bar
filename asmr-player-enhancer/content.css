@@ -1,0 +1,287 @@
+/* ============================================================
+   ASMR Player Enhancer - Styles
+   Target: japaneseasmr.com (Plyr-based player)
+   ============================================================ */
+
+/* ─── Floating Progress Bar (fixed at bottom 30% of screen) ── */
+#asmr-enhancer-progress-container {
+  position: fixed;
+  top: 70vh;
+  left: 0;
+  width: 100vw;
+  z-index: 99999;
+  background: rgba(20, 20, 20, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.5);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.asmr-progress-bar {
+  position: relative;
+  width: 100%;
+  height: 28px;
+  background: #1a1a1a;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.asmr-progress-bar:hover {
+  height: 40px;
+}
+
+.asmr-progress-buffered {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+  transition: width 0.3s ease;
+}
+
+.asmr-progress-played {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #ff6b6b, #ee5a24);
+  pointer-events: none;
+  transition: width 0.05s linear;
+}
+
+.asmr-progress-handle {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+  transition: left 0.05s linear, opacity 0.15s;
+  opacity: 0;
+}
+
+.asmr-progress-bar:hover .asmr-progress-handle {
+  opacity: 1;
+}
+
+/* Time Display - shows elapsed/total */
+.asmr-time-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 16px;
+  background: transparent;
+  color: #ccc;
+  font-family: 'SF Mono', 'Roboto Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+
+.asmr-time-separator {
+  color: #555;
+  margin: 0 2px;
+}
+
+/* ─── Track List Enhancements ────────────────────────────── */
+
+#plyr-chapter-playlist tr.asm-track-item {
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border-left: 3px solid transparent;
+}
+
+#plyr-chapter-playlist tr.asm-track-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+#plyr-chapter-playlist tr.asm-track-item.asm-track-active {
+  background: rgba(255, 107, 107, 0.1);
+  border-left: 3px solid #ee5a24;
+}
+
+#plyr-chapter-playlist tr.asm-track-item.asm-track-active td.chapter_list.chapter_title a {
+  color: #ff6b6b !important;
+  font-weight: 500;
+}
+
+/* Track Progress Row */
+#plyr-chapter-playlist tr.asm-track-progress-row {
+  border-left: 3px solid transparent;
+}
+
+#plyr-chapter-playlist tr.asm-track-progress-row.asm-track-active {
+  border-left: 3px solid #ee5a24;
+}
+
+.asmr-track-progress-td {
+  padding: 2px 8px 6px 8px !important;
+  background: transparent;
+}
+
+.asmr-track-progress-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.asmr-track-time-display {
+  font-size: 10px;
+  color: #555;
+  font-family: 'SF Mono', 'Roboto Mono', 'Menlo', 'Consolas', monospace;
+  letter-spacing: 0.3px;
+  padding-left: 2px;
+  line-height: 1.2;
+}
+
+.asm-track-active .asmr-track-time-display {
+  color: #ee5a24;
+}
+
+.asmr-track-progress-bar {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  background: #222;
+  border-radius: 3px;
+  cursor: pointer;
+  overflow: visible;
+  transition: height 0.1s;
+  touch-action: pan-y;
+}
+
+.asmr-track-progress-bar:hover {
+  height: 14px;
+  margin-top: -4px;
+}
+
+.asm-track-active .asmr-track-progress-bar {
+  background: #2a2a2a;
+}
+
+.asmr-track-progress-played {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: rgba(255, 107, 107, 0.3);
+  border-radius: 3px;
+  pointer-events: none;
+  transition: width 0.1s linear;
+}
+
+.asm-track-active .asmr-track-progress-played {
+  background: linear-gradient(90deg, #ff6b6b, #ee5a24);
+}
+
+.asmr-track-progress-handle {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  background: #888;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.asmr-track-progress-bar:hover .asmr-track-progress-handle {
+  opacity: 1;
+  background: #fff;
+}
+
+.asm-track-active .asmr-track-progress-bar:hover .asmr-track-progress-handle {
+  background: #ff6b6b;
+}
+
+/* ─── Mobile Optimizations ───────────────────────────────── */
+@media (max-width: 768px) {
+  .asmr-progress-bar {
+    height: 36px;
+  }
+
+  .asmr-progress-bar:hover {
+    height: 44px;
+  }
+
+  .asmr-progress-handle {
+    opacity: 1;
+    width: 24px;
+    height: 24px;
+  }
+
+  .asmr-time-display {
+    font-size: 16px;
+    padding: 8px 16px;
+  }
+
+  .asmr-track-progress-bar {
+    height: 14px;
+  }
+
+  .asmr-track-progress-bar:hover {
+    height: 20px;
+    margin-top: -3px;
+  }
+
+  .asmr-track-progress-handle {
+    opacity: 1;
+    width: 18px;
+    height: 18px;
+  }
+
+  .asmr-track-time-display {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .asmr-progress-bar {
+    height: 40px;
+  }
+
+  .asmr-progress-bar:hover {
+    height: 48px;
+  }
+
+  #asmr-enhancer-progress-container {
+    top: 72vh;
+  }
+}
+
+/* ─── Subtitle / Lyrics Module (v1.1.0) ── */
+#asmr-sub-fab {
+  user-select: none;
+  transition: background 0.15s;
+}
+#asmr-sub-fab:hover { background: #1565c0; }
+
+#asmr-sub-panel input[type="text"]:focus {
+  outline: none;
+  border-color: #1976d2 !important;
+}
+
+#asmr-sub-drop.dragover {
+  border-color: #1976d2 !important;
+  background: #e3f2fd;
+}
+
+#asmr-sub-upload:hover { background: #00796b; }
+#asmr-sub-upload:active { transform: translateY(1px); }
+
+#__asmrLyricsOverlay {
+  pointer-events: auto;
+}
+#__asmrLyricsOverlay div[style*="font-weight:bold"] {
+  text-shadow: 0 0 6px rgba(79, 195, 247, 0.5);
+}
