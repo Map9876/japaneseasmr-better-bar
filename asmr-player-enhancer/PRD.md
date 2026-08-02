@@ -295,3 +295,11 @@ asmr-player-enhancer/
 - `content.css`：补充字幕面板与歌词框样式
 
 **说明**：歌词框默认置于右上角（top:60px right:10px），以避开底部主进度条（top:70vh）。
+
+---
+
+## v1.1.1 (2026-08-03) 移动端自适应修复
+
+- **Bug**: 字幕/歌词面板在手机上显示不全、右侧被遮住超出屏幕。
+- **原因**: 面板固定 `width:320px`（歌词框 `340px`）且未设置 `box-sizing`，叠加 `left:10px` 与 14px 内边距后，窄屏下右侧溢出视口。
+- **修复**: 面板宽度改为 `width:min(320px, calc(100vw - 20px))` + `box-sizing:border-box` + `overflow-wrap:anywhere`；歌词框同样改为 `min(340px, calc(100vw - 20px))`。现任何屏宽下均保留左右各 10px 边距，不再溢出。

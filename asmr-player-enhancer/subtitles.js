@@ -209,7 +209,7 @@
     if (lyricsOverlay) return;
     lyricsOverlay = document.createElement('div');
     lyricsOverlay.id = '__asmrLyricsOverlay';
-    lyricsOverlay.style.cssText = 'position:fixed;top:60px;right:10px;width:340px;max-height:60vh;background:rgba(0,0,0,0.85);color:#fff;border-radius:8px;z-index:99998;display:none;overflow:hidden;font-family:sans-serif;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
+    lyricsOverlay.style.cssText = 'position:fixed;top:60px;right:10px;width:min(340px, calc(100vw - 20px));max-width:calc(100vw - 20px);box-sizing:border-box;max-height:60vh;background:rgba(0,0,0,0.85);color:#fff;border-radius:8px;z-index:99998;display:none;overflow:hidden;font-family:sans-serif;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
     const header = document.createElement('div');
     header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,0.1);cursor:move;user-select:none;';
     const title = document.createElement('span');
@@ -289,7 +289,7 @@
     if (panel) { panel.style.display = panel.style.display === 'none' ? 'block' : 'none'; return; }
     panel = document.createElement('div');
     panel.id = 'asmr-sub-panel';
-    panel.style.cssText = 'position:fixed;left:10px;bottom:54px;z-index:99997;width:320px;max-height:70vh;overflow:auto;background:#fff;color:#222;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.4);font-family:sans-serif;font-size:13px;padding:14px;';
+    panel.style.cssText = 'position:fixed;left:10px;bottom:54px;z-index:99997;width:min(320px, calc(100vw - 20px));max-width:calc(100vw - 20px);box-sizing:border-box;max-height:70vh;overflow:auto;background:#fff;color:#222;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.4);font-family:sans-serif;font-size:13px;padding:14px;overflow-wrap:anywhere;';
     panel.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
         <b>字幕 / 歌词</b>
