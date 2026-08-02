@@ -356,3 +356,15 @@ asmr-player-enhancer/
 - **歌词空白（真因）**: `refreshLyricsForTime` 里先调 `buildLyricsSkeleton()` 再调 `createLyricsOverlay()`，而 `lyricsContent` 是 `createLyricsOverlay()` 内才创建的，导致首帧 `buildLyricsSkeleton` 读到 `lyricsContent === null` 直接 return，歌词行从未建出（该 bug 自 v1.1.3 闪烁修复起就存在，故多版本都空白）。修正为：仅在「字幕集变化」时先 `createLyricsOverlay()` 再 `buildLyricsSkeleton()`，确保容器存在后再建行。
 - **封面图**: 从 40×40 加大到 60×60，`border-radius` 6px，行内边距收窄（`padding:4px 0`、行间距 `gap:10px`），去掉图片四周多余的空白。
 
+---
+
+## v1.1.8 (2026-08-03) 字幕库记录用 RJ 号识别规则
+
+- **新增**: 上传字幕后，用于写入本地字幕库（localStorage）的 RJ 号按以下优先级确定：
+  1. **压缩包文件名**（如 `RJ01608265.zip` → `RJ01608265`）；
+  2. **压缩包内部文件名 / 文件夹名**（如包内 `RJ0123185_track1.lrc` → `RJ0123185`）；
+  3. **当前页面 RJ**（`getCurrentPageRJ()` 扫描正文）。
+- **兜底逻辑（保留）**: 若压缩包名与内部文件名都未发现 RJ 号，则以「当前我上传这个页面的 RJ 号」作为该字幕压缩包的记录 RJ。例如正在 `https://japaneseasmr.com/149049/`（页面 RJ：RJ01680427）看，临时上传一个叫 `1.zip`、里面是 `1.lrc / 2.lrc` 的压缩包（文件名里没有 RJ），就自动以当前页面 `RJ01680427` 记录——非常贴合用户边看边传的使用习惯。
+- **说明（写进代码注释/本段）**: 若压缩包名或里面文件夹无 RJ 号，则当前页面 RJ 被记录为该字幕压缩包的 RJ 号，并随后存入 localStorage，刷新/重开仍在。
+- 状态栏会明确提示实际记录到的 RJ（如「已记录到字幕库：RJ01608265（N 个字幕）」），便于核对。
+

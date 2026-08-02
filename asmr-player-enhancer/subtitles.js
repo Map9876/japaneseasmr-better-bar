@@ -342,6 +342,12 @@
     return m ? m[0].toUpperCase() : '';
   }
 
+  // 从任意文本（压缩包名 / 内部文件名 / 文件夹名）抽取 RJ 号
+  function extractRJ(text) {
+    const m = (text || '').match(/RJ\d{6,10}/i);
+    return m ? m[0].toUpperCase() : '';
+  }
+
   // ─── 字幕库（localStorage：我历史上传的所有，刷新/重开仍在）──
   // 存储结构: [{ rj, title, files:[{name, cues:[{start,end,text}]}], savedAt }]
   function loadLibraryStore() {
@@ -542,6 +548,7 @@
     const files = Array.from(fileList);
     const zipFile = files.find((f) => f.name.toLowerCase().endsWith('.zip'));
 
+    let rj = '';
     if (zipFile) {
       try {
         const zip = await JSZip.loadAsync(await zipFile.arrayBuffer());
@@ -553,6 +560,9 @@
           if (cues.length) loadedFiles.push({ name: name.split('/').pop(), cues });
         }
         setStatus('压缩包解析完成：' + loadedFiles.length + ' 个字幕文件', '#2e7d32');
+        // 记录用 RJ：压缩包名 > 内部文件名/文件夹名 > 当前页面
+        rj = extractRJ(zipFile.name);
+        if (!rj) { for (const n of entries) { rj = extractRJ(n); if (rj) break; } }
       } catch (e) {
         setStatus('ZIP 解析失败：' + e.message, '#c62828');
         return;
@@ -562,22 +572,25 @@
         const text = await f.text();
         const cues = parseSubtitle(f.name, text);
         if (cues.length) loadedFiles.push({ name: f.name, cues });
+        const fr = extractRJ(f.name);
+        if (!rj && fr) rj = fr;
       }
       setStatus('已读取 ' + loadedFiles.length + ' 个字幕文件', loadedFiles.length ? '#2e7d32' : '#c62828');
     }
+    if (!rj) rj = getCurrentPageRJ();
 
     if (!loadedFiles.length) { setStatus('未找到有效字幕文件', '#c62828'); return; }
     if (!tracks.length) parseTracks();
     if (!audioEl) findAudio();
     buildTrackMap();
 
-    // 持久化到本地字幕库（localStorage）：以当前页面 RJ 为键，刷新/重开仍在
-    const rj = getCurrentPageRJ();
+    // 持久化到本地字幕库（localStorage）：RJ 优先级见上，刷新/重开仍在
     if (rj) {
       persistLoaded(rj);
+      setStatus('已记录到字幕库：' + rj + '（' + loadedFiles.length + ' 个字幕）', '#2e7d32');
       refreshLibraryAndMatch();
     } else {
-      setStatus('已读取字幕，但未识别到当前页面 RJ（不会存入字幕库）', '#f57c00');
+      setStatus('已读取字幕，但未识别到 RJ（压缩包名/内部文件名/当前页面均无），不会存入字幕库', '#f57c00');
     }
   }
 
