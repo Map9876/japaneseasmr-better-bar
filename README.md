@@ -2,6 +2,23 @@
 
 增强 [japaneseasmr.com](https://japaneseasmr.com) 音频播放器的 Chrome 浏览器扩展（Manifest V3）。
 
+## 打包下载（zip）
+
+各版本打包位于仓库根目录，命名 `ASM-Player-Enhancer-vX.Y.Z.zip`，点击即可下载：
+
+- 最新：[ASM-Player-Enhancer-v1.1.9.zip](ASM-Player-Enhancer-v1.1.9.zip)
+- 历史：[ASM-Player-Enhancer-v1.1.0.zip](ASM-Player-Enhancer-v1.1.0.zip) ~ [ASM-Player-Enhancer-v1.1.8.zip](ASM-Player-Enhancer-v1.1.8.zip)（仓库根目录 [./](./) 均有留存）
+
+安装时解压后加载其中的 `asmr-player-enhancer` 文件夹即可。
+
+## 截图
+
+> 注：截图中面板里的「字幕库服务器 / 上传到云端字幕库」为**占位 UI，图中所示的服务端功能当前并未实现**，请勿填写服务器地址。字幕实际保存在浏览器 localStorage（本地），正常工作。
+
+![播放器增强 + 字幕面板](asmr-player-enhancer/Screenshot_20260803_062858.jpg)
+
+![Kiwi 浏览器中的字幕/歌词浮窗](asmr-player-enhancer/Screenshot_20260803_062912_com_kiwibrowser_browser_ChromeTabbedActivity.jpg)
+
 ## 功能
 
 ### 播放器增强（v1.x）
@@ -32,24 +49,7 @@ asmr-player-enhancer/
 ├── content.css        # 样式
 ├── jszip.min.js       # JSZip v3.10.1 (MIT)，内置 zip 解析
 ├── icons/             # 扩展图标
-├── Screenshot_*.jpg   # 效果截图（见下方）
+├── Screenshot_*.jpg   # 效果截图（见上方）
 ├── README.md          # 本文件
 └── PRD.md             # 开发文档
 ```
-
-## 截图
-
-> 注：截图中面板里的「字幕库服务器 / 上传到云端字幕库」为**占位 UI，图中所示的服务端功能当前并未实现**，请勿填写服务器地址。字幕实际保存在浏览器 localStorage（本地），正常工作。
-
-![播放器增强 + 字幕面板](asmr-player-enhancer/Screenshot_20260803_062858.jpg)
-
-![Kiwi 浏览器中的字幕/歌词浮窗](asmr-player-enhancer/Screenshot_20260803_062912_com_kiwibrowser_browser_ChromeTabbedActivity.jpg)
-
-## 打包下载（zip）
-
-各版本打包位于仓库根目录，命名 `ASM-Player-Enhancer-vX.Y.Z.zip`，点击即可下载：
-
-- 最新：[ASM-Player-Enhancer-v1.1.9.zip](ASM-Player-Enhancer-v1.1.9.zip)
-- 历史：[ASM-Player-Enhancer-v1.1.0.zip](ASM-Player-Enhancer-v1.1.0.zip) ~ [ASM-Player-Enhancer-v1.1.8.zip](ASM-Player-Enhancer-v1.1.8.zip)（仓库根目录 [./](./) 均有留存）
-
-安装时解压后加载其中的 `asmr-player-enhancer` 文件夹即可。
