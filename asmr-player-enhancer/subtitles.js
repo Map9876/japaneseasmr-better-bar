@@ -18,6 +18,7 @@
   const INJECTED_FLAG = 'asmrSubInjected';
   const COVER_BASE = 'https://pic.weeabo0.xyz/';
   const SEARCH_BASE = 'https://japaneseasmr.com/?s=';
+  const LIB_KEY = 'asmrSubLibrary';   // localStorage：我历史上传的所有字幕（刷新/重开仍在）
 
   // ─── State ────────────────────────────────────────────────
   let audioEl = null;
@@ -27,6 +28,9 @@
   let activeCues = [];
   let activeBaseTime = 0;
   let currentTrackIndex = -2;
+  let lyricsLineEls = [];        // 与 activeCues 平行的歌词行 DOM
+  let lastActiveIdx = -1;        // 上一次高亮行，避免反复滚动
+  let renderedKey = null;        // 当前渲染的字幕集标识，变化时才重建 DOM
   let lyricsOverlay = null;
   let lyricsContent = null;
   let serverUrl = '';
@@ -246,24 +250,44 @@
     try { audioEl.currentTime = absStart; if (audioEl.paused) audioEl.play().catch(() => {}); } catch (e) {}
   }
 
-  function updateLyricsDisplay(localTime) {
+  // 仅在字幕集变化时构建一次歌词行 DOM（避免每帧重建导致闪烁）
+  function buildLyricsSkeleton() {
     if (!lyricsContent) return;
     lyricsContent.innerHTML = '';
-    if (activeCues.length === 0) return;
-    let pastActive = false;
-    for (const cue of activeCues) {
-      const isActive = localTime >= cue.start && localTime < cue.end;
-      let color;
-      if (isActive) color = '#4fc3f7';
-      else if (pastActive) color = 'rgba(255,255,255,0.5)';
-      else color = 'rgba(255,255,255,0.3)';
+    lyricsLineEls = [];
+    activeCues.forEach((cue) => {
       const line = document.createElement('div');
       line.className = 'asmr-lyric-line';
       line.textContent = cue.text;
-      line.style.cssText = 'padding:2px 0;cursor:pointer;color:' + color + ';font-weight:' + (isActive ? 'bold' : 'normal') + ';font-size:' + (isActive ? '15px' : '13px') + ';';
+      line.style.cssText = 'padding:2px 0;cursor:pointer;color:rgba(255,255,255,0.3);font-weight:normal;font-size:13px;';
       line.onclick = (() => { const t = activeBaseTime + cue.start; return () => seekTo(t); })();
       lyricsContent.appendChild(line);
-      if (isActive) { line.scrollIntoView({ behavior: 'smooth', block: 'center' }); pastActive = true; }
+      lyricsLineEls.push(line);
+    });
+  }
+
+  // 每帧只更新样式 + 当前行变化时才滚动一次（容器内滚动，不带动整页）
+  function updateLyricsDisplay(localTime) {
+    if (!lyricsContent || activeCues.length === 0) return;
+    let activeIdx = -1;
+    for (let i = 0; i < activeCues.length; i++) {
+      if (localTime >= activeCues[i].start && localTime < activeCues[i].end) { activeIdx = i; break; }
+    }
+    for (let i = 0; i < lyricsLineEls.length; i++) {
+      const cue = activeCues[i];
+      const isActive = i === activeIdx;
+      const isPast = !isActive && localTime >= cue.end;
+      const color = isActive ? '#4fc3f7' : (isPast ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.3)');
+      const el = lyricsLineEls[i];
+      el.style.color = color;
+      el.style.fontWeight = isActive ? 'bold' : 'normal';
+      el.style.fontSize = isActive ? '15px' : '13px';
+    }
+    if (activeIdx !== -1 && activeIdx !== lastActiveIdx) {
+      const el = lyricsLineEls[activeIdx];
+      const target = el.offsetTop - lyricsContent.clientHeight / 2 + el.clientHeight / 2;
+      lyricsContent.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+      lastActiveIdx = activeIdx;
     }
   }
 
@@ -271,18 +295,36 @@
     if (tracks.length === 0) return;
     let idx = -1;
     for (let i = tracks.length - 1; i >= 0; i--) if (currentTime >= tracks[i].startTime) { idx = i; break; }
-    if (idx === currentTrackIndex && !force) return;
-    currentTrackIndex = idx;
     const tr = tracks[idx];
+    let key = null;
     if (tr && trackSubtitles[tr.index]) {
       activeCues = trackSubtitles[tr.index].cues;
       activeBaseTime = tr.startTime;
+      key = 't' + tr.index;
     } else if (workRelative.length) {
       activeCues = workRelative.flatMap((x) => x.cues);
       activeBaseTime = 0;
-    } else { activeCues = []; activeBaseTime = 0; }
-    if (activeCues.length) { createLyricsOverlay(); lyricsOverlay.style.display = 'block'; updateLyricsDisplay((currentTime || 0) - activeBaseTime); }
-    else if (lyricsOverlay) lyricsOverlay.style.display = 'none';
+      key = 'w' + workRelative.length + ':' + (activeCues[0] ? activeCues[0].start : 0);
+    } else { activeCues = []; activeBaseTime = 0; key = null; }
+
+    // 字幕集未变且轨道未变：仅更新样式，不重建 DOM
+    if (currentTrackIndex === idx && !force && key === renderedKey) {
+      if (activeCues.length) updateLyricsDisplay((currentTime || 0) - activeBaseTime);
+      return;
+    }
+    currentTrackIndex = idx;
+    if (key !== renderedKey) {
+      renderedKey = key;
+      lastActiveIdx = -1;
+      if (activeCues.length) buildLyricsSkeleton();
+    }
+    if (activeCues.length) {
+      createLyricsOverlay();
+      lyricsOverlay.style.display = 'block';
+      updateLyricsDisplay((currentTime || 0) - activeBaseTime);
+    } else if (lyricsOverlay) {
+      lyricsOverlay.style.display = 'none';
+    }
   }
 
   function watchPlayback() {
@@ -290,7 +332,6 @@
       if (!audioEl) return;
       const t = audioEl.currentTime || 0;
       refreshLyricsForTime(t, false);
-      if (!audioEl.paused && activeCues.length) updateLyricsDisplay(t - activeBaseTime);
     }, 250);
   }
 
@@ -301,24 +342,25 @@
     return m ? m[0].toUpperCase() : '';
   }
 
-  // ─── 字幕库（服务端「我历史上传的所有」）─────────────────────
+  // ─── 字幕库（localStorage：我历史上传的所有，刷新/重开仍在）──
+  // 存储结构: [{ rj, title, files:[{name, cues:[{start,end,text}]}], savedAt }]
+  function loadLibraryStore() {
+    try { return JSON.parse(localStorage.getItem(LIB_KEY) || '[]') || []; }
+    catch (e) { return []; }
+  }
+  function saveLibraryStore(arr) {
+    try { localStorage.setItem(LIB_KEY, JSON.stringify(arr)); } catch (e) {}
+  }
+
   async function fetchLibrary() {
-    if (!serverUrl) return [];
-    try {
-      const r = await fetch(serverUrl.replace(/\/$/, '') + '/api/subtitles-list');
-      if (!r.ok) return [];
-      const d = await r.json();
-      const items = (d.items || []).slice();
-      // 新 → 旧：RJ 号越大越新（零填充可字典序排序），作为近似
-      items.sort((a, b) => String(b.rj_number).localeCompare(String(a.rj_number)));
-      return items;
-    } catch (e) { return []; }
+    // 新 → 旧（按保存时间倒序）
+    return loadLibraryStore().slice().sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
   }
 
   function coverUrl(rj) { return COVER_BASE + rj + '_img_main.jpg'; }
 
   function buildLibraryItem(item, isCurrent) {
-    const rj = item.rj_number;
+    const rj = item.rj;
     const wrap = document.createElement('div');
     wrap.className = 'asmr-lib-item';
     wrap.dataset.rj = rj;
@@ -345,8 +387,10 @@
     rjLink.onclick = (e) => e.stopPropagation();
     info.appendChild(rjLink);
     const meta = document.createElement('div');
-    meta.style.cssText = 'font-size:11px;color:#888;';
-    meta.textContent = 'lrc:' + (item.lrc_count || 0) + '  vtt:' + (item.vtt_count || 0);
+    meta.style.cssText = 'font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    const fileCount = (item.files || []).length;
+    const cueCount = (item.files || []).reduce((s, f) => s + (f.cues ? f.cues.length : 0), 0);
+    meta.textContent = (item.title ? item.title + '  ·  ' : '') + fileCount + ' 文件 / ' + cueCount + ' 行';
     info.appendChild(meta);
     wrap.appendChild(info);
 
@@ -364,15 +408,12 @@
     const box = document.getElementById('asmr-sub-liblist');
     if (!box) return;
     box.innerHTML = '';
-    if (!serverUrl) {
-      box.innerHTML = '<div style="font-size:12px;color:#999;padding:6px 0;">未配置字幕库服务器（下方填写后刷新）</div>';
-      return;
-    }
+    libraryItems = fetchLibrary();
     if (!libraryItems.length) {
-      box.innerHTML = '<div style="font-size:12px;color:#999;padding:6px 0;">字幕库为空</div>';
+      box.innerHTML = '<div style="font-size:12px;color:#999;padding:6px 0;">字幕库为空（拖入字幕后会出现在这里）</div>';
       return;
     }
-    libraryItems.forEach((it) => box.appendChild(buildLibraryItem(it, it.rj_number === currentRJ)));
+    libraryItems.forEach((it) => box.appendChild(buildLibraryItem(it, it.rj === currentRJ)));
   }
 
   function highlightLibraryItem(rj) {
@@ -384,42 +425,29 @@
     });
   }
 
-  // 从服务端载入某个 RJ 的全部字幕并匹配当前页面
+  // 从 localStorage 载入某个 RJ 的全部字幕并匹配当前页面（无需联网）
   async function loadLibraryRJ(rj) {
-    if (!serverUrl) { setStatus('未配置字幕库服务器', '#c62828'); return; }
-    setStatus('载入 ' + rj + ' …', '#1976d2');
-    try {
-      const base = serverUrl.replace(/\/$/, '');
-      const r = await fetch(base + '/api/subtitles-for-kikoeru/' + rj);
-      const data = await r.json().catch(() => ({}));
-      const files = (data.lrc_files || []).concat(data.vtt_files || []);
-      if (!files.length) { setStatus(rj + ' 无字幕文件', '#c62828'); return; }
-      loadedFiles = [];
-      for (const f of files) {
-        const fr = await fetch(base + '/api/download-lrc/' + rj + '/' + encodeURIComponent(f));
-        const text = await fr.text();
-        const cues = parseSubtitle(f, text);
-        if (cues.length) loadedFiles.push({ name: f, cues });
-      }
-      if (!loadedFiles.length) { setStatus('解析失败：' + rj, '#c62828'); return; }
-      if (!tracks.length) parseTracks();
-      if (!audioEl) findAudio();
-      buildTrackMap();
-      setStatus('已载入 ' + rj + '：' + loadedFiles.length + ' 个字幕', '#2e7d32');
-      highlightLibraryItem(rj);
-    } catch (e) {
-      setStatus('载入失败：' + e.message, '#c62828');
+    const entry = loadLibraryStore().find((x) => x.rj === rj);
+    if (!entry || !entry.files || !entry.files.length) {
+      setStatus('字幕库无 ' + rj + ' 的字幕', '#c62828');
+      return;
     }
+    setStatus('载入 ' + rj + ' …', '#1976d2');
+    loadedFiles = entry.files.map((f) => ({ name: f.name, cues: f.cues }));
+    if (!tracks.length) parseTracks();
+    if (!audioEl) findAudio();
+    buildTrackMap();
+    setStatus('已载入 ' + rj + '：' + loadedFiles.length + ' 个字幕（本地）', '#2e7d32');
+    highlightLibraryItem(rj);
   }
 
   // 打开面板时自动匹配当前页面 RJ 并刷新字幕库
   async function refreshLibraryAndMatch() {
     currentRJ = getCurrentPageRJ();
-    libraryItems = await fetchLibrary();
     renderLibrary(currentRJ);
     const rjHint = document.getElementById('asmr-sub-currrj');
     if (rjHint) rjHint.textContent = currentRJ ? ('当前页面 RJ：' + currentRJ) : '当前页面未识别到 RJ';
-    if (currentRJ && libraryItems.some((it) => it.rj_number === currentRJ)) {
+    if (currentRJ && libraryItems.some((it) => it.rj === currentRJ)) {
       loadLibraryRJ(currentRJ);
     }
   }
@@ -461,10 +489,10 @@
       </div>
 
       <div style="margin-top:10px;border-top:1px solid #eee;padding-top:8px;">
-        <label style="font-size:12px;color:#555;">字幕库服务器(可选):</label>
+        <label style="font-size:12px;color:#555;">上传到云端字幕库（可选，仅用于同步分享）:</label>
         <input id="asmr-sub-server" type="text" placeholder="https://your-server" value="${serverUrl}"
           style="width:100%;box-sizing:border-box;padding:5px;margin-top:4px;border:1px solid #ccc;border-radius:4px;font-size:12px;" />
-        <button id="asmr-sub-upload" style="margin-top:6px;width:100%;padding:7px;background:#00897b;color:#fff;border:none;border-radius:5px;cursor:pointer;">⬆ 上传到字幕库</button>
+        <button id="asmr-sub-upload" style="margin-top:6px;width:100%;padding:7px;background:#00897b;color:#fff;border:none;border-radius:5px;cursor:pointer;">⬆ 上传到云端字幕库</button>
       </div>
     `;
     document.body.appendChild(panel);
@@ -540,6 +568,30 @@
     if (!tracks.length) parseTracks();
     if (!audioEl) findAudio();
     buildTrackMap();
+
+    // 持久化到本地字幕库（localStorage）：以当前页面 RJ 为键，刷新/重开仍在
+    const rj = getCurrentPageRJ();
+    if (rj) {
+      persistLoaded(rj);
+      refreshLibraryAndMatch();
+    } else {
+      setStatus('已读取字幕，但未识别到当前页面 RJ（不会存入字幕库）', '#f57c00');
+    }
+  }
+
+  // 将当前 loadedFiles 写入 localStorage 字幕库（同名 RJ 覆盖更新）
+  function persistLoaded(rj) {
+    if (!rj || !loadedFiles.length) return;
+    const store = loadLibraryStore();
+    const entry = {
+      rj,
+      title: (loadedFiles[0] && loadedFiles[0].name) || rj,
+      files: loadedFiles.map((f) => ({ name: f.name, cues: f.cues })),
+      savedAt: Date.now()
+    };
+    const idx = store.findIndex((x) => x.rj === rj);
+    if (idx >= 0) store[idx] = entry; else store.push(entry);
+    saveLibraryStore(store);
   }
 
   // ─── Upload to kikoeru server (七步上传压缩包集成) ─────────
@@ -579,15 +631,15 @@
     obs.observe(document.body, { childList: true, subtree: true });
     setTimeout(() => obs.disconnect(), 60000);
 
-    // 刷新后自动匹配当前页面 RJ 并载入字幕（若已在字幕库）
-    if (serverUrl) setTimeout(autoLoadCurrentRJ, 2500);
+    // 刷新后自动匹配当前页面 RJ 并载入字幕（localStorage 字幕库）
+    setTimeout(autoLoadCurrentRJ, 2500);
   }
 
   async function autoLoadCurrentRJ() {
     const rj = getCurrentPageRJ();
     if (!rj) return;
-    const items = await fetchLibrary();
-    if (items.some((it) => it.rj_number === rj)) await loadLibraryRJ(rj);
+    const store = loadLibraryStore();
+    if (store.some((it) => it.rj === rj)) await loadLibraryRJ(rj);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(init, 800));
