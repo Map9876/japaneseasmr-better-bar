@@ -349,3 +349,10 @@ asmr-player-enhancer/
 - **修复 3**: `refreshLyricsForTime` 原来在 `tracks.length === 0` 时直接 `return`，导致字幕存在但音轨列表尚未解析时歌词空白。改为：无音轨时回退到「整作绝对时间」(workRelative) 模式显示歌词。
 - 现在：拖入 / 选择 / 点「上传」都会进入「我的字幕库」并立即显示歌词；刷新或重开浏览器后仍在。
 
+---
+
+## v1.1.7 (2026-08-03) 修复：歌词行不显示 + 封面图加大去空白
+
+- **歌词空白（真因）**: `refreshLyricsForTime` 里先调 `buildLyricsSkeleton()` 再调 `createLyricsOverlay()`，而 `lyricsContent` 是 `createLyricsOverlay()` 内才创建的，导致首帧 `buildLyricsSkeleton` 读到 `lyricsContent === null` 直接 return，歌词行从未建出（该 bug 自 v1.1.3 闪烁修复起就存在，故多版本都空白）。修正为：仅在「字幕集变化」时先 `createLyricsOverlay()` 再 `buildLyricsSkeleton()`，确保容器存在后再建行。
+- **封面图**: 从 40×40 加大到 60×60，`border-radius` 6px，行内边距收窄（`padding:4px 0`、行间距 `gap:10px`），去掉图片四周多余的空白。
+

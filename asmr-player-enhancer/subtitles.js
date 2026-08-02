@@ -317,10 +317,9 @@
     if (key !== renderedKey) {
       renderedKey = key;
       lastActiveIdx = -1;
-      if (activeCues.length) buildLyricsSkeleton();
+      if (activeCues.length) { createLyricsOverlay(); buildLyricsSkeleton(); }
     }
     if (activeCues.length) {
-      createLyricsOverlay();
       lyricsOverlay.style.display = 'block';
       updateLyricsDisplay((currentTime || 0) - activeBaseTime);
     } else if (lyricsOverlay) {
@@ -365,7 +364,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'asmr-lib-item';
     wrap.dataset.rj = rj;
-    wrap.style.cssText = 'display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f0;cursor:pointer;' + (isCurrent ? 'background:#e3f2fd;' : '');
+    wrap.style.cssText = 'display:flex;gap:10px;align-items:center;padding:4px 0;border-bottom:1px solid #f0f0f0;cursor:pointer;' + (isCurrent ? 'background:#e3f2fd;' : '');
 
     // 封面（尝试绕过 CF：no-referrer；失败则隐藏）
     const img = document.createElement('img');
@@ -373,7 +372,7 @@
     img.src = coverUrl(rj);
     img.referrerPolicy = 'no-referrer';
     img.loading = 'lazy';
-    img.style.cssText = 'width:40px;height:40px;object-fit:cover;border-radius:4px;flex:none;background:#eee;';
+    img.style.cssText = 'width:60px;height:60px;object-fit:cover;border-radius:6px;flex:none;background:#eee;';
     img.onerror = () => { img.style.display = 'none'; };
     wrap.appendChild(img);
 
