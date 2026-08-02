@@ -333,3 +333,9 @@ asmr-player-enhancer/
 - **「上传到云端字幕库」按钮保留为可选**: 仅当填写了云端服务器地址时才用于分享同步，与本地字幕库互不干扰。
 - 封面图（`pic.weeabo0.xyz`）仍尝试 `referrerPolicy=no-referrer` 绕过 CF，失败则隐藏（CF JS 挑战下可能仍不可见，需真机确认）。
 
+---
+
+## v1.1.5 (2026-08-03) 面板显示扩展版本号
+
+- 字幕 / 歌词 面板标题下方新增一行小字：`ASMR Player Enhancer v<版本号>`，版本号取自 `chrome.runtime.getManifest().version`（与 manifest.json 同步），便于核对已安装的版本。
+

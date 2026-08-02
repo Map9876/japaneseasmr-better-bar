@@ -469,11 +469,13 @@
     panel = document.createElement('div');
     panel.id = 'asmr-sub-panel';
     panel.style.cssText = 'position:fixed;left:10px;bottom:54px;z-index:99997;width:min(340px, calc(100vw - 20px));max-width:calc(100vw - 20px);box-sizing:border-box;max-height:80vh;overflow:auto;background:#fff;color:#222;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.4);font-family:sans-serif;font-size:13px;padding:14px;overflow-wrap:anywhere;';
+    const extVer = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest) ? chrome.runtime.getManifest().version : '';
     panel.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
         <b>字幕 / 歌词</b>
         <span id="asmr-sub-close" style="cursor:pointer;font-size:16px;">✕</span>
       </div>
+      <div style="font-size:10px;color:#aaa;margin-bottom:8px;">ASMR Player Enhancer v${extVer}</div>
       <div id="asmr-sub-drop" style="border:2px dashed #bbb;border-radius:8px;padding:14px;text-align:center;color:#666;cursor:pointer;">
         点击选择 或 拖拽 .zip / .lrc / .vtt / .srt / .ass
       </div>
