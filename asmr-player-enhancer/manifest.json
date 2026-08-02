@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ASMR Player Enhancer",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "增强 japaneseasmr.com 的音频播放器：全宽进度条、拖动快进、Track独立进度条、已播放时间显示",
   "permissions": [
     "storage"

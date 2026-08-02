@@ -292,9 +292,10 @@
   }
 
   function refreshLyricsForTime(currentTime, force) {
-    if (tracks.length === 0) return;
     let idx = -1;
-    for (let i = tracks.length - 1; i >= 0; i--) if (currentTime >= tracks[i].startTime) { idx = i; break; }
+    if (tracks.length > 0) {
+      for (let i = tracks.length - 1; i >= 0; i--) if (currentTime >= tracks[i].startTime) { idx = i; break; }
+    }
     const tr = tracks[idx];
     let key = null;
     if (tr && trackSubtitles[tr.index]) {
@@ -352,8 +353,8 @@
     try { localStorage.setItem(LIB_KEY, JSON.stringify(arr)); } catch (e) {}
   }
 
-  async function fetchLibrary() {
-    // 新 → 旧（按保存时间倒序）
+  function fetchLibrary() {
+    // 新 → 旧（按保存时间倒序）；同步返回数组（renderLibrary 同步消费）
     return loadLibraryStore().slice().sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
   }
 
@@ -447,7 +448,7 @@
     renderLibrary(currentRJ);
     const rjHint = document.getElementById('asmr-sub-currrj');
     if (rjHint) rjHint.textContent = currentRJ ? ('当前页面 RJ：' + currentRJ) : '当前页面未识别到 RJ';
-    if (currentRJ && libraryItems.some((it) => it.rj === currentRJ)) {
+    if (currentRJ && Array.isArray(libraryItems) && libraryItems.some((it) => it.rj === currentRJ)) {
       loadLibraryRJ(currentRJ);
     }
   }
@@ -596,23 +597,29 @@
     saveLibraryStore(store);
   }
 
-  // ─── Upload to kikoeru server (七步上传压缩包集成) ─────────
+  // ─── 上传按钮：先存入本地字幕库（必做），再可选同步到云端 ─────
   async function uploadToServer() {
-    const zipFile = Array.from(document.getElementById('asmr-sub-file').files || []).find((f) => f.name.toLowerCase().endsWith('.zip'));
-    if (!zipFile) { setStatus('请先选择包含字幕的 .zip 再上传', '#c62828'); return; }
-    if (!serverUrl) { setStatus('请先在上方填写字幕库服务器地址', '#c62828'); return; }
-    setStatus('上传中...', '#1976d2');
+    const files = Array.from(document.getElementById('asmr-sub-file').files || []);
+    if (!files.length) { setStatus('请先选择包含字幕的 .zip / .lrc 再上传', '#c62828'); return; }
+
+    // 1) 当作本地字幕加载并写入本地字幕库（这一步一定执行，确保「我的字幕库」里能看到）
+    await handleFiles(files);
+
+    // 2) 可选：同步到云端字幕库（仅当填写了服务器地址）
+    if (!serverUrl) {
+      setStatus('已保存到本地字幕库（未配置云端地址，仅存本地）', '#2e7d32');
+      return;
+    }
+    setStatus('同步到云端中...', '#1976d2');
     try {
       const fd = new FormData();
-      fd.append('file', zipFile);
+      files.forEach((f) => fd.append('file', f));
       const r = await fetch(serverUrl.replace(/\/$/, '') + '/api/upload-subtitles', { method: 'POST', body: fd });
       const data = await r.json().catch(() => ({}));
-      if (data.error) setStatus('❌ ' + data.error, '#c62828');
-      else setStatus('✅ ' + (data.message || '上传成功') + (data.saved_rjs ? ' (' + data.saved_rjs.join(',') + ')' : ''), '#2e7d32');
-      // 上传后刷新字幕库
-      refreshLibraryAndMatch();
+      if (data.error) setStatus('✅ 本地已存；云端：' + data.error, '#f57c00');
+      else setStatus('✅ 本地已存 + 云端：' + (data.message || '成功') + (data.saved_rjs ? ' (' + data.saved_rjs.join(',') + ')' : ''), '#2e7d32');
     } catch (e) {
-      setStatus('上传失败：' + e.message, '#c62828');
+      setStatus('✅ 本地已存；云端同步失败：' + e.message, '#f57c00');
     }
   }
 

@@ -339,3 +339,13 @@ asmr-player-enhancer/
 
 - 字幕 / 歌词 面板标题下方新增一行小字：`ASMR Player Enhancer v<版本号>`，版本号取自 `chrome.runtime.getManifest().version`（与 manifest.json 同步），便于核对已安装的版本。
 
+---
+
+## v1.1.6 (2026-08-03) 修复：字幕库空白 + 歌词空白 + 上传不入库
+
+- **根因**: v1.1.4 把 `fetchLibrary` 误标为 `async`，但 `renderLibrary` 是同步调用 `libraryItems = fetchLibrary()`，导致 `libraryItems` 拿到的是 **Promise** 而非数组 → `libraryItems.length` 为 `undefined`（永远显示“字幕库为空”）且 `libraryItems.some` 抛 `TypeError: libraryItems.some is not a function`，把自动载入字幕的流程打断（歌词因此空白）。
+- **修复 1**: `fetchLibrary` 改为同步函数（仅读 localStorage，无需 async）。`refreshLibraryAndMatch` 对 `libraryItems` 增加 `Array.isArray` 防御。
+- **修复 2**: 「上传到云端字幕库」按钮原本只 POST 到一个并不存在的 `/api/upload-subtitles`，从不写本地。改为：**先调用 `handleFiles` 把选中的字幕加载并写入本地字幕库（必定执行）**，仅当填写了服务器地址时才额外尝试同步到云端（失败也不影响本地）。即「上传」= 加入我的字幕库 + 可选云端同步。
+- **修复 3**: `refreshLyricsForTime` 原来在 `tracks.length === 0` 时直接 `return`，导致字幕存在但音轨列表尚未解析时歌词空白。改为：无音轨时回退到「整作绝对时间」(workRelative) 模式显示歌词。
+- 现在：拖入 / 选择 / 点「上传」都会进入「我的字幕库」并立即显示歌词；刷新或重开浏览器后仍在。
+
