@@ -37,6 +37,7 @@
   let loadedFiles = [];
   let libraryItems = [];        // 服务端字幕库列表
   let currentRJ = '';           // 当前页面识别到的 RJ
+  let lyricsHidden = false;     // 用户手动隐藏歌词浮窗（播放循环不再强制显示）
 
   // ─── Utility ──────────────────────────────────────────────
   function pad(n) { return n.toString().padStart(2, '0'); }
@@ -213,6 +214,7 @@
     });
     const used = new Set(Object.values(trackSubtitles).map((x) => x.name));
     loadedFiles.forEach((f) => { if (!used.has(f.name) && f.cues.length) workRelative.push({ name: f.name, cues: f.cues }); });
+    lyricsHidden = false;   // 新载入字幕默认显示歌词浮窗
     refreshLyricsForTime(audioEl ? audioEl.currentTime : 0, true);
   }
 
@@ -221,7 +223,7 @@
     if (lyricsOverlay) return;
     lyricsOverlay = document.createElement('div');
     lyricsOverlay.id = '__asmrLyricsOverlay';
-    lyricsOverlay.style.cssText = 'position:fixed;top:60px;right:10px;width:min(340px, calc(100vw - 20px));max-width:calc(100vw - 20px);box-sizing:border-box;max-height:60vh;background:rgba(0,0,0,0.85);color:#fff;border-radius:8px;z-index:99998;display:none;overflow:hidden;font-family:sans-serif;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
+    lyricsOverlay.style.cssText = 'position:fixed;top:60px;right:10px;width:min(340px, calc(100vw - 20px));max-width:calc(100vw - 20px);box-sizing:border-box;max-height:60vh;background:rgba(0,0,0,0.85);color:#fff;border-radius:8px;z-index:100002;display:none;overflow:hidden;font-family:sans-serif;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
     const header = document.createElement('div');
     header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,0.1);cursor:move;user-select:none;';
     const title = document.createElement('span');
@@ -230,7 +232,7 @@
     const closeBtn = document.createElement('span');
     closeBtn.textContent = '✕';
     closeBtn.style.cssText = 'cursor:pointer;font-size:16px;padding:0 4px;';
-    closeBtn.onclick = () => { lyricsOverlay.style.display = 'none'; };
+    closeBtn.onclick = () => { lyricsHidden = true; lyricsOverlay.style.display = 'none'; };
     header.appendChild(title); header.appendChild(closeBtn);
     lyricsOverlay.appendChild(header);
     lyricsContent = document.createElement('div');
@@ -320,8 +322,10 @@
       if (activeCues.length) { createLyricsOverlay(); buildLyricsSkeleton(); }
     }
     if (activeCues.length) {
-      lyricsOverlay.style.display = 'block';
-      updateLyricsDisplay((currentTime || 0) - activeBaseTime);
+      if (!lyricsHidden) {
+        lyricsOverlay.style.display = 'block';
+        updateLyricsDisplay((currentTime || 0) - activeBaseTime);
+      }
     } else if (lyricsOverlay) {
       lyricsOverlay.style.display = 'none';
     }
@@ -459,22 +463,57 @@
   }
 
   // ─── UI: FAB + Panel ──────────────────────────────────────
+  function setFabState(open) {
+    const fab = document.getElementById('asmr-sub-fab');
+    if (!fab) return;
+    fab.style.background = open ? '#1565c0' : '#1976d2';
+    fab.style.boxShadow = open ? '0 0 0 2px #90caf9, 0 2px 10px rgba(0,0,0,0.4)' : '0 2px 10px rgba(0,0,0,0.4)';
+    fab.textContent = open ? '字幕 ●' : '字幕';
+  }
+
+  function closePanel() {
+    const panel = document.getElementById('asmr-sub-panel');
+    if (panel) panel.style.display = 'none';
+    setFabState(false);
+  }
+
+  // 右下「词」按钮：独立开关歌词浮窗（与面板互不影响）
+  function toggleLyricsWindow() {
+    if (!loadedFiles.length) { togglePanel(); return; }   // 还没载入字幕 → 打开面板去载入
+    lyricsHidden = !lyricsHidden;
+    if (lyricsOverlay) lyricsOverlay.style.display = lyricsHidden ? 'none' : 'block';
+    else if (!lyricsHidden) refreshLyricsForTime(audioEl ? audioEl.currentTime : 0, true);
+  }
+
   function buildUI() {
     if (document.getElementById('asmr-sub-fab')) return;
+    // 字幕面板开关（左下，on/off 拨杆样式）
     const fab = document.createElement('div');
     fab.id = 'asmr-sub-fab';
     fab.textContent = '字幕';
-    fab.style.cssText = 'position:fixed;left:10px;bottom:12px;z-index:99997;background:#1976d2;color:#fff;padding:8px 14px;border-radius:20px;font-size:13px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.4);font-family:sans-serif;';
+    fab.style.cssText = 'position:fixed;left:10px;bottom:12px;z-index:100000;background:#1976d2;color:#fff;padding:8px 14px;border-radius:20px;font-size:13px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.4);font-family:sans-serif;';
     fab.onclick = togglePanel;
     document.body.appendChild(fab);
+    // 歌词浮窗开关（右下，独立）
+    const lfab = document.createElement('div');
+    lfab.id = 'asmr-lyrics-fab';
+    lfab.textContent = '词';
+    lfab.style.cssText = 'position:fixed;right:10px;bottom:12px;z-index:100000;background:#00897b;color:#fff;padding:8px 12px;border-radius:20px;font-size:13px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.4);font-family:sans-serif;';
+    lfab.onclick = toggleLyricsWindow;
+    document.body.appendChild(lfab);
   }
 
   function togglePanel() {
     let panel = document.getElementById('asmr-sub-panel');
-    if (panel) { panel.style.display = panel.style.display === 'none' ? 'block' : 'none'; return; }
+    if (panel) {
+      const willShow = panel.style.display === 'none';
+      panel.style.display = willShow ? 'block' : 'none';
+      setFabState(willShow);
+      return;
+    }
     panel = document.createElement('div');
     panel.id = 'asmr-sub-panel';
-    panel.style.cssText = 'position:fixed;left:10px;bottom:54px;z-index:99997;width:min(340px, calc(100vw - 20px));max-width:calc(100vw - 20px);box-sizing:border-box;max-height:80vh;overflow:auto;background:#fff;color:#222;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.4);font-family:sans-serif;font-size:13px;padding:14px;overflow-wrap:anywhere;';
+    panel.style.cssText = 'position:fixed;left:10px;bottom:54px;z-index:100001;width:min(340px, calc(100vw - 20px));max-width:calc(100vw - 20px);box-sizing:border-box;max-height:80vh;overflow:auto;background:#fff;color:#222;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.4);font-family:sans-serif;font-size:13px;padding:14px;overflow-wrap:anywhere;';
     const extVer = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest) ? chrome.runtime.getManifest().version : '';
     panel.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
@@ -502,10 +541,13 @@
           style="width:100%;box-sizing:border-box;padding:5px;margin-top:4px;border:1px solid #ccc;border-radius:4px;font-size:12px;" />
         <button id="asmr-sub-upload" style="margin-top:6px;width:100%;padding:7px;background:#00897b;color:#fff;border:none;border-radius:5px;cursor:pointer;">⬆ 上传到云端字幕库</button>
       </div>
+      <div style="margin-top:10px;font-size:10px;color:#999;line-height:1.5;">
+        关闭本面板不影响歌词浮窗；右下「词」可单独开关歌词。
+      </div>
     `;
     document.body.appendChild(panel);
 
-    document.getElementById('asmr-sub-close').onclick = () => { panel.style.display = 'none'; };
+    document.getElementById('asmr-sub-close').onclick = closePanel;
     const drop = document.getElementById('asmr-sub-drop');
     const fileInput = document.getElementById('asmr-sub-file');
     drop.onclick = () => fileInput.click();
