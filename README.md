@@ -47,9 +47,9 @@ asmr-player-enhancer/
 
 ## 打包下载（zip）
 
-各版本打包位于仓库根目录，命名 `ASM-Player-Enhancer-vX.Y.Z.zip`，方便跳转：
+各版本打包位于仓库根目录，命名 `ASM-Player-Enhancer-vX.Y.Z.zip`，点击即可下载：
 
-- 最新：`ASM-Player-Enhancer-v1.1.9.zip`
-- 历史：`ASM-Player-Enhancer-v1.1.0.zip` ~ `v1.1.8.zip`（仓库根目录均有留存）
+- 最新：[ASM-Player-Enhancer-v1.1.9.zip](ASM-Player-Enhancer-v1.1.9.zip)
+- 历史：[ASM-Player-Enhancer-v1.1.0.zip](ASM-Player-Enhancer-v1.1.0.zip) ~ [ASM-Player-Enhancer-v1.1.8.zip](ASM-Player-Enhancer-v1.1.8.zip)（仓库根目录 [./](./) 均有留存）
 
 安装时解压后加载其中的 `asmr-player-enhancer` 文件夹即可。
