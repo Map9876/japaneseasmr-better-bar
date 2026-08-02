@@ -4,7 +4,11 @@
    功能:
      - 加载字幕压缩包(.zip) / 单个 .lrc/.vtt/.srt/.ass
      - 按 Track 标题自动匹配字幕
-     - 浮动同步歌词框（复用 kiko 歌词窗口逻辑）
+     - 浮动同步歌词框（点击歌词行可跳转播放位置，对齐 kiko 歌词 web）
+     - 字幕库：列出服务端「我历史上传的所有」字幕，新→旧、可收起
+       · 每条带封面图(pic.weeabo0.xyz，尝试绕过 CF)
+       · RJ 号蓝色可点 → japaneseasmr.com 搜索
+     - 自动匹配当前页面 RJ 号并载入对应字幕（刷新后仍在）
      - 可选「上传到字幕库」(POST 到可配置的 kikoeru 服务端)
    ============================================================ */
 
@@ -12,6 +16,8 @@
   'use strict';
 
   const INJECTED_FLAG = 'asmrSubInjected';
+  const COVER_BASE = 'https://pic.weeabo0.xyz/';
+  const SEARCH_BASE = 'https://japaneseasmr.com/?s=';
 
   // ─── State ────────────────────────────────────────────────
   let audioEl = null;
@@ -25,6 +31,8 @@
   let lyricsContent = null;
   let serverUrl = '';
   let loadedFiles = [];
+  let libraryItems = [];        // 服务端字幕库列表
+  let currentRJ = '';           // 当前页面识别到的 RJ
 
   // ─── Utility ──────────────────────────────────────────────
   function pad(n) { return n.toString().padStart(2, '0'); }
@@ -204,7 +212,7 @@
     refreshLyricsForTime(audioEl ? audioEl.currentTime : 0, true);
   }
 
-  // ─── Lyrics overlay (复用 kiko 歌词窗口) ───────────────────
+  // ─── Lyrics overlay (对齐 kiko 歌词 web) ───────────────────
   function createLyricsOverlay() {
     if (lyricsOverlay) return;
     lyricsOverlay = document.createElement('div');
@@ -232,18 +240,31 @@
     document.addEventListener('mouseup', () => { drag = false; });
   }
 
+  // 点击歌词行 → 跳转到对应播放位置（对齐 kiko 歌词 web）
+  function seekTo(absStart) {
+    if (!audioEl) return;
+    try { audioEl.currentTime = absStart; if (audioEl.paused) audioEl.play().catch(() => {}); } catch (e) {}
+  }
+
   function updateLyricsDisplay(localTime) {
-    if (!lyricsContent || activeCues.length === 0) return;
-    let html = '', found = false;
+    if (!lyricsContent) return;
+    lyricsContent.innerHTML = '';
+    if (activeCues.length === 0) return;
+    let pastActive = false;
     for (const cue of activeCues) {
       const isActive = localTime >= cue.start && localTime < cue.end;
-      if (isActive) { html += '<div style="color:#4fc3f7;font-weight:bold;font-size:15px;padding:2px 0;">' + cue.text + '</div>'; found = true; }
-      else if (!found && cue.start > localTime) html += '<div style="color:rgba(255,255,255,0.3);font-size:13px;padding:2px 0;">' + cue.text + '</div>';
-      else if (found) html += '<div style="color:rgba(255,255,255,0.5);font-size:13px;padding:2px 0;">' + cue.text + '</div>';
+      let color;
+      if (isActive) color = '#4fc3f7';
+      else if (pastActive) color = 'rgba(255,255,255,0.5)';
+      else color = 'rgba(255,255,255,0.3)';
+      const line = document.createElement('div');
+      line.className = 'asmr-lyric-line';
+      line.textContent = cue.text;
+      line.style.cssText = 'padding:2px 0;cursor:pointer;color:' + color + ';font-weight:' + (isActive ? 'bold' : 'normal') + ';font-size:' + (isActive ? '15px' : '13px') + ';';
+      line.onclick = (() => { const t = activeBaseTime + cue.start; return () => seekTo(t); })();
+      lyricsContent.appendChild(line);
+      if (isActive) { line.scrollIntoView({ behavior: 'smooth', block: 'center' }); pastActive = true; }
     }
-    lyricsContent.innerHTML = html;
-    const activeLine = lyricsContent.querySelector('[style*="font-weight:bold"]');
-    if (activeLine) activeLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   function refreshLyricsForTime(currentTime, force) {
@@ -273,6 +294,136 @@
     }, 250);
   }
 
+  // ─── 当前页面 RJ 识别 ──────────────────────────────────────
+  function getCurrentPageRJ() {
+    if (!document.body) return '';
+    const m = (document.body.innerText || '').match(/RJ\d{6,10}/i);
+    return m ? m[0].toUpperCase() : '';
+  }
+
+  // ─── 字幕库（服务端「我历史上传的所有」）─────────────────────
+  async function fetchLibrary() {
+    if (!serverUrl) return [];
+    try {
+      const r = await fetch(serverUrl.replace(/\/$/, '') + '/api/subtitles-list');
+      if (!r.ok) return [];
+      const d = await r.json();
+      const items = (d.items || []).slice();
+      // 新 → 旧：RJ 号越大越新（零填充可字典序排序），作为近似
+      items.sort((a, b) => String(b.rj_number).localeCompare(String(a.rj_number)));
+      return items;
+    } catch (e) { return []; }
+  }
+
+  function coverUrl(rj) { return COVER_BASE + rj + '_img_main.jpg'; }
+
+  function buildLibraryItem(item, isCurrent) {
+    const rj = item.rj_number;
+    const wrap = document.createElement('div');
+    wrap.className = 'asmr-lib-item';
+    wrap.dataset.rj = rj;
+    wrap.style.cssText = 'display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f0;cursor:pointer;' + (isCurrent ? 'background:#e3f2fd;' : '');
+
+    // 封面（尝试绕过 CF：no-referrer；失败则隐藏）
+    const img = document.createElement('img');
+    img.className = 'asmr-lib-cover';
+    img.src = coverUrl(rj);
+    img.referrerPolicy = 'no-referrer';
+    img.loading = 'lazy';
+    img.style.cssText = 'width:40px;height:40px;object-fit:cover;border-radius:4px;flex:none;background:#eee;';
+    img.onerror = () => { img.style.display = 'none'; };
+    wrap.appendChild(img);
+
+    const info = document.createElement('div');
+    info.style.cssText = 'flex:1;min-width:0;';
+    const rjLink = document.createElement('a');
+    rjLink.textContent = rj;
+    rjLink.href = SEARCH_BASE + rj;
+    rjLink.target = '_blank';
+    rjLink.rel = 'noopener';
+    rjLink.style.cssText = 'color:#1565c0;font-weight:500;text-decoration:none;font-size:13px;';
+    rjLink.onclick = (e) => e.stopPropagation();
+    info.appendChild(rjLink);
+    const meta = document.createElement('div');
+    meta.style.cssText = 'font-size:11px;color:#888;';
+    meta.textContent = 'lrc:' + (item.lrc_count || 0) + '  vtt:' + (item.vtt_count || 0);
+    info.appendChild(meta);
+    wrap.appendChild(info);
+
+    const loadBtn = document.createElement('button');
+    loadBtn.textContent = isCurrent ? '✓ 已载' : '载入';
+    loadBtn.style.cssText = 'flex:none;padding:4px 10px;border:none;border-radius:4px;background:' + (isCurrent ? '#90caf9' : '#1976d2') + ';color:#fff;cursor:pointer;font-size:12px;';
+    loadBtn.onclick = (e) => { e.stopPropagation(); loadLibraryRJ(rj); };
+    wrap.appendChild(loadBtn);
+
+    wrap.onclick = () => loadLibraryRJ(rj);
+    return wrap;
+  }
+
+  function renderLibrary(currentRJ) {
+    const box = document.getElementById('asmr-sub-liblist');
+    if (!box) return;
+    box.innerHTML = '';
+    if (!serverUrl) {
+      box.innerHTML = '<div style="font-size:12px;color:#999;padding:6px 0;">未配置字幕库服务器（下方填写后刷新）</div>';
+      return;
+    }
+    if (!libraryItems.length) {
+      box.innerHTML = '<div style="font-size:12px;color:#999;padding:6px 0;">字幕库为空</div>';
+      return;
+    }
+    libraryItems.forEach((it) => box.appendChild(buildLibraryItem(it, it.rj_number === currentRJ)));
+  }
+
+  function highlightLibraryItem(rj) {
+    document.querySelectorAll('.asmr-lib-item').forEach((el) => {
+      const cur = el.dataset.rj === rj;
+      el.style.background = cur ? '#e3f2fd' : '';
+      const btn = el.querySelector('button');
+      if (btn) { btn.textContent = cur ? '✓ 已载' : '载入'; btn.style.background = cur ? '#90caf9' : '#1976d2'; }
+    });
+  }
+
+  // 从服务端载入某个 RJ 的全部字幕并匹配当前页面
+  async function loadLibraryRJ(rj) {
+    if (!serverUrl) { setStatus('未配置字幕库服务器', '#c62828'); return; }
+    setStatus('载入 ' + rj + ' …', '#1976d2');
+    try {
+      const base = serverUrl.replace(/\/$/, '');
+      const r = await fetch(base + '/api/subtitles-for-kikoeru/' + rj);
+      const data = await r.json().catch(() => ({}));
+      const files = (data.lrc_files || []).concat(data.vtt_files || []);
+      if (!files.length) { setStatus(rj + ' 无字幕文件', '#c62828'); return; }
+      loadedFiles = [];
+      for (const f of files) {
+        const fr = await fetch(base + '/api/download-lrc/' + rj + '/' + encodeURIComponent(f));
+        const text = await fr.text();
+        const cues = parseSubtitle(f, text);
+        if (cues.length) loadedFiles.push({ name: f, cues });
+      }
+      if (!loadedFiles.length) { setStatus('解析失败：' + rj, '#c62828'); return; }
+      if (!tracks.length) parseTracks();
+      if (!audioEl) findAudio();
+      buildTrackMap();
+      setStatus('已载入 ' + rj + '：' + loadedFiles.length + ' 个字幕', '#2e7d32');
+      highlightLibraryItem(rj);
+    } catch (e) {
+      setStatus('载入失败：' + e.message, '#c62828');
+    }
+  }
+
+  // 打开面板时自动匹配当前页面 RJ 并刷新字幕库
+  async function refreshLibraryAndMatch() {
+    currentRJ = getCurrentPageRJ();
+    libraryItems = await fetchLibrary();
+    renderLibrary(currentRJ);
+    const rjHint = document.getElementById('asmr-sub-currrj');
+    if (rjHint) rjHint.textContent = currentRJ ? ('当前页面 RJ：' + currentRJ) : '当前页面未识别到 RJ';
+    if (currentRJ && libraryItems.some((it) => it.rj_number === currentRJ)) {
+      loadLibraryRJ(currentRJ);
+    }
+  }
+
   // ─── UI: FAB + Panel ──────────────────────────────────────
   function buildUI() {
     if (document.getElementById('asmr-sub-fab')) return;
@@ -289,7 +440,7 @@
     if (panel) { panel.style.display = panel.style.display === 'none' ? 'block' : 'none'; return; }
     panel = document.createElement('div');
     panel.id = 'asmr-sub-panel';
-    panel.style.cssText = 'position:fixed;left:10px;bottom:54px;z-index:99997;width:min(320px, calc(100vw - 20px));max-width:calc(100vw - 20px);box-sizing:border-box;max-height:70vh;overflow:auto;background:#fff;color:#222;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.4);font-family:sans-serif;font-size:13px;padding:14px;overflow-wrap:anywhere;';
+    panel.style.cssText = 'position:fixed;left:10px;bottom:54px;z-index:99997;width:min(340px, calc(100vw - 20px));max-width:calc(100vw - 20px);box-sizing:border-box;max-height:80vh;overflow:auto;background:#fff;color:#222;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.4);font-family:sans-serif;font-size:13px;padding:14px;overflow-wrap:anywhere;';
     panel.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
         <b>字幕 / 歌词</b>
@@ -300,6 +451,15 @@
       </div>
       <input id="asmr-sub-file" type="file" multiple accept=".zip,.lrc,.vtt,.srt,.ass" style="display:none" />
       <div id="asmr-sub-status" style="margin-top:8px;font-size:12px;color:#444;"></div>
+
+      <div style="margin-top:10px;border-top:1px solid #eee;padding-top:8px;">
+        <div id="asmr-sub-currrj" style="font-size:12px;color:#1565c0;margin-bottom:4px;"></div>
+        <div id="asmr-sub-libtoggle" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:13px;font-weight:500;color:#222;">
+          <span>📚 我的字幕库</span><span id="asmr-sub-libarrow">▼</span>
+        </div>
+        <div id="asmr-sub-liblist" style="margin-top:4px;max-height:40vh;overflow:auto;"></div>
+      </div>
+
       <div style="margin-top:10px;border-top:1px solid #eee;padding-top:8px;">
         <label style="font-size:12px;color:#555;">字幕库服务器(可选):</label>
         <input id="asmr-sub-server" type="text" placeholder="https://your-server" value="${serverUrl}"
@@ -308,6 +468,7 @@
       </div>
     `;
     document.body.appendChild(panel);
+
     document.getElementById('asmr-sub-close').onclick = () => { panel.style.display = 'none'; };
     const drop = document.getElementById('asmr-sub-drop');
     const fileInput = document.getElementById('asmr-sub-file');
@@ -317,16 +478,32 @@
     drop.ondragleave = () => { drop.style.borderColor = '#bbb'; };
     drop.ondrop = (e) => { e.preventDefault(); drop.style.borderColor = '#bbb'; if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); };
     const serverInput = document.getElementById('asmr-sub-server');
-    serverInput.onchange = () => { serverUrl = serverInput.value.trim(); try { localStorage.setItem('asmrSubServer', serverUrl); } catch (e) {} };
+    serverInput.onchange = () => {
+      serverUrl = serverInput.value.trim();
+      try { localStorage.setItem('asmrSubServer', serverUrl); } catch (e) {}
+      refreshLibraryAndMatch();
+    };
     document.getElementById('asmr-sub-upload').onclick = uploadToServer;
+
+    // 字幕库可收起
+    const toggle = document.getElementById('asmr-sub-libtoggle');
+    const list = document.getElementById('asmr-sub-liblist');
+    const arrow = document.getElementById('asmr-sub-libarrow');
+    toggle.onclick = () => {
+      const hidden = list.style.display === 'none';
+      list.style.display = hidden ? 'block' : 'none';
+      arrow.textContent = hidden ? '▼' : '▶';
+    };
+
+    refreshLibraryAndMatch();
   }
 
   function setStatus(msg, color) {
     const el = document.getElementById('asmr-sub-status');
-    if (el) { el.innerHTML = msg; el.style.color = color || '#444'; }
+    if (el) { el.textContent = msg; el.style.color = color || '#444'; }
   }
 
-  // ─── Load subtitles ────────────────────────────────────────
+  // ─── Load subtitles (本地拖拽/选择) ─────────────────────────
   async function handleFiles(fileList) {
     if (!fileList || !fileList.length) return;
     loadedFiles = [];
@@ -378,6 +555,8 @@
       const data = await r.json().catch(() => ({}));
       if (data.error) setStatus('❌ ' + data.error, '#c62828');
       else setStatus('✅ ' + (data.message || '上传成功') + (data.saved_rjs ? ' (' + data.saved_rjs.join(',') + ')' : ''), '#2e7d32');
+      // 上传后刷新字幕库
+      refreshLibraryAndMatch();
     } catch (e) {
       setStatus('上传失败：' + e.message, '#c62828');
     }
@@ -399,6 +578,16 @@
     });
     obs.observe(document.body, { childList: true, subtree: true });
     setTimeout(() => obs.disconnect(), 60000);
+
+    // 刷新后自动匹配当前页面 RJ 并载入字幕（若已在字幕库）
+    if (serverUrl) setTimeout(autoLoadCurrentRJ, 2500);
+  }
+
+  async function autoLoadCurrentRJ() {
+    const rj = getCurrentPageRJ();
+    if (!rj) return;
+    const items = await fetchLibrary();
+    if (items.some((it) => it.rj_number === rj)) await loadLibraryRJ(rj);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(init, 800));

@@ -303,3 +303,13 @@ asmr-player-enhancer/
 - **Bug**: 字幕/歌词面板在手机上显示不全、右侧被遮住超出屏幕。
 - **原因**: 面板固定 `width:320px`（歌词框 `340px`）且未设置 `box-sizing`，叠加 `left:10px` 与 14px 内边距后，窄屏下右侧溢出视口。
 - **修复**: 面板宽度改为 `width:min(320px, calc(100vw - 20px))` + `box-sizing:border-box` + `overflow-wrap:anywhere`；歌词框同样改为 `min(340px, calc(100vw - 20px))`。现任何屏宽下均保留左右各 10px 边距，不再溢出。
+
+---
+
+## v1.1.2 (2026-08-03) 字幕库 + 歌词跳转 + 当前页 RJ 自动匹配
+
+- **歌词点击跳转**: 歌词浮框每一行可点击，点击跳转到对应播放位置（对齐 kiko 歌词 web）。
+- **字幕库列表**: 面板内新增「📚 我的字幕库」，从服务端 `/api/subtitles-list` 拉取「我历史上传的所有」字幕，按 RJ 号倒序（新→旧），可收起（▶/▼）。
+- **每条字幕**: 带封面图 `pic.weeabo0.xyz/RJxxxx_img_main.jpg`（尝试 `referrerPolicy=no-referrer` 绕过 CF，失败则隐藏）；RJ 号蓝色可点 → `japaneseasmr.com/?s=RJxxxx` 搜索。
+- **当前页 RJ 自动匹配**: 打开面板 / 页面加载时识别当前页面 RJ（扫描正文 `RJ\d{6,10}`），若在字幕库中则自动载入并高亮，刷新后仍在（服务端为真相源）。
+- 选择某条字幕「载入」即拉取该 RJ 全部 lrc/vtt 内容并匹配当前页面音轨。
